@@ -702,6 +702,15 @@ public class Optimizer {
                                               ColumnRefSet requiredColumns) {
         boolean pushDistinctFlag = false;
         boolean pushAggFlag = false;
+        boolean pushAggBelowUnionFlag = false;
+        if (context.getSessionVariable().isCboPushDownDistinctBelowWindow()) {
+            // TODO(by satanson): in future, PushDownDistinctAggregateRule and PushDownAggregateRule should be
+            //  fused one rule to tackle with all scenarios of agg push-down.
+            PushDownDistinctAggregateRule rule = new PushDownDistinctAggregateRule(rootTaskContext);
+            tree = rule.rewrite(tree, rootTaskContext);
+            pushDistinctFlag = rule.getRewriter().hasRewrite();
+        }
+
         if (context.getSessionVariable().isCboPushDownDistinctBelowWindow()) {
             // TODO(by satanson): in future, PushDownDistinctAggregateRule and PushDownAggregateRule should be
             //  fused one rule to tackle with all scenarios of agg push-down.

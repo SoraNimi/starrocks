@@ -162,6 +162,7 @@ public class PushDownAggregationBelowUnionRewriter extends OptExpressionVisitor<
         ColumnRefSet refSet = new ColumnRefSet();
         context.groupBys.values().forEach(v -> refSet.union(v.getUsedColumns()));
         context.groupBys.clear();
+        // refSet中的数据都是经过 ReplaceColumnRefRewriter 重写的
         refSet.getStream().map(factory::getColumnRef).forEach(k -> context.groupBys.put(k, k));
 
         // rewrite aggregation & push down expression

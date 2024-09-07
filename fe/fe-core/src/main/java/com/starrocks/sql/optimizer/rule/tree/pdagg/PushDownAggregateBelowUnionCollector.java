@@ -66,8 +66,8 @@ import java.util.stream.Collectors;
  * mark push down which aggregation, the value will multi-rewrite by path, for check
  * which aggregation needs push down
  */
-class PushDownAggregateCollector extends OptExpressionVisitor<Void, AggregatePushDownContext> {
-    private static final Logger LOG = LogManager.getLogger(PushDownAggregateCollector.class);
+class PushDownAggregateBelowUnionCollector extends OptExpressionVisitor<Void, AggregatePushDownContext> {
+    private static final Logger LOG = LogManager.getLogger(PushDownAggregateBelowUnionCollector.class);
 
     private static final int DISABLE_PUSH_DOWN_AGG = -1;
     private static final int PUSH_DOWN_AGG_AUTO = 0;
@@ -85,7 +85,7 @@ class PushDownAggregateCollector extends OptExpressionVisitor<Void, AggregatePus
 
     private final Map<LogicalAggregationOperator, List<AggregatePushDownContext>> allRewriteContext = Maps.newHashMap();
 
-    public PushDownAggregateCollector(TaskContext taskContext) {
+    public PushDownAggregateBelowUnionCollector(TaskContext taskContext) {
         this.taskContext = taskContext;
         optimizerContext = taskContext.getOptimizerContext();
         factory = taskContext.getOptimizerContext().getColumnRefFactory();
@@ -332,7 +332,7 @@ class PushDownAggregateCollector extends OptExpressionVisitor<Void, AggregatePus
             return visit(optExpression, context);
         }
 
-        List<PushDownAggregateCollector> collectors = Lists.newArrayList();
+        List<PushDownAggregateBelowUnionCollector> collectors = Lists.newArrayList();
         LogicalUnionOperator union = (LogicalUnionOperator) optExpression.getOp();
         for (int i = 0; i < optExpression.getInputs().size(); i++) {
             List<ColumnRefOperator> childOutput = union.getChildOutputColumns().get(i);
@@ -353,14 +353,14 @@ class PushDownAggregateCollector extends OptExpressionVisitor<Void, AggregatePus
             childContext.pushPaths.addAll(context.pushPaths);
             childContext.pushPaths.add(i);
 
-            PushDownAggregateCollector collector = new PushDownAggregateCollector(this.taskContext);
+            PushDownAggregateBelowUnionCollector collector = new PushDownAggregateBelowUnionCollector(this.taskContext);
             collectors.add(collector);
             collector.process(optExpression.inputAt(i), childContext);
         }
 
         // collect push down aggregate context
         List<List<AggregatePushDownContext>> allChildRewriteContext = Lists.newArrayList();
-        for (PushDownAggregateCollector childCollector : collectors) {
+        for (PushDownAggregateBelowUnionCollector childCollector : collectors) {
             if (childCollector.allRewriteContext.containsKey(context.origAggregator)) {
                 allChildRewriteContext.add(childCollector.allRewriteContext.get(context.origAggregator));
                 childCollector.allRewriteContext.remove(context.origAggregator);
@@ -368,7 +368,7 @@ class PushDownAggregateCollector extends OptExpressionVisitor<Void, AggregatePus
         }
 
         // merge other rewrite context
-        for (PushDownAggregateCollector collector : collectors) {
+        for (PushDownAggregateBelowUnionCollector collector : collectors) {
             Preconditions.checkState(
                     !CollectionUtils.containsAny(allRewriteContext.keySet(), collector.allRewriteContext.keySet()));
             allRewriteContext.putAll(collector.allRewriteContext);
